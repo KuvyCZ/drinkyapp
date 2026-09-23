@@ -436,10 +436,12 @@ function buildData(d) {
   if (FLAV.length) STEPS.push({ t: 'Druhy pyré a limonád', d: 'Příchutě: ' + FLAV.map(i => i.name).join(', '), mode: 'flav' });
   GROUPS.forEach(g => {
     if (hasIng(g)) {
-      SECTIONS.filter(s => s.group === g).forEach(s =>
-        STEPS.push({ t: s.name, d: 'Kartičky: suroviny a cena', mode: 'cards', filter: 'sec:' + s.id }));
-      STEPS.push({ t: 'Ceny – ' + g, d: 'Kvíz na ceny', mode: 'price', filter: 'grp:' + g });
+      // nejdřív recepty všech sekcí, pak opakování, pak ceny
+      const secs = SECTIONS.filter(s => s.group === g && ITEMS.some(i => i.sec === s.id && i.ing));
+      const short = s => s.name.replace(g + ' – ', '');
+      secs.forEach(s => STEPS.push({ t: short(s) + ' – suroviny', d: 'Kartičky: jen suroviny, bez ceny', mode: 'recipes', filter: 'sec:' + s.id }));
       STEPS.push({ t: 'Poznej drink podle surovin', d: 'Opakování: ' + g, mode: 'ing', filter: 'grp:' + g });
+      secs.forEach(s => STEPS.push({ t: short(s) + ' – ceny', d: 'Kvíz na ceny', mode: 'price', filter: 'sec:' + s.id }));
     } else {
       const secs = SECTIONS.filter(s => s.group === g).map(s => s.name.replace(/^.*– |\s*\(.*\)$/g, ''));
       STEPS.push({ t: g, d: 'Kartičky: ' + secs.join(', '), mode: 'cards', filter: 'grp:' + g });
@@ -464,7 +466,7 @@ function stepPool(st) {
   if (st.mode === 'glos') return GLOS;
   if (st.mode === 'flav') return FLAV;
   const p = itemsFor(st.filter);
-  return st.mode === 'price' ? p.filter(i => i.price > 0) : st.mode === 'ing' ? p.filter(i => i.ing) : p;
+  return st.mode === 'price' ? p.filter(i => i.price > 0) : ['ing', 'recipes'].includes(st.mode) ? p.filter(i => i.ing) : p;
 }
 const glosFor = item => item.ing ? GLOS.filter(g => g.terms.some(t => norm(item.ing).includes(t))) : [];
 
@@ -670,12 +672,12 @@ function renderQuiz(q, top, onNext) {
 let examTimer = null;
 function render() {
   clearInterval(examTimer);
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.mode === ui.mode));
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.mode === (ui.mode === 'recipes' ? 'cards' : ui.mode)));
   $('#filterRow').classList.toggle('hidden', ['path', 'glos', 'exam', 'flav'].includes(ui.mode));
   $('#searchRow').classList.toggle('hidden', ui.mode !== 'browse');
   $('#filter').value = ui.filter;
   save(LS_UI, { mode: ui.mode === 'exam' ? 'path' : ui.mode, filter: ui.filter, gmode: ui.gmode });
-  ({ path: renderPath, glos: renderGlos, cards: renderCards, price: renderPrice, ing: renderIng, browse: renderBrowse, exam: renderExam, flav: renderFlav })[ui.mode]();
+  ({ path: renderPath, glos: renderGlos, cards: renderCards, recipes: renderCards, price: renderPrice, ing: renderIng, browse: renderBrowse, exam: renderExam, flav: renderFlav })[ui.mode]();
   window.scrollTo(0, 0);
 }
 
@@ -786,7 +788,8 @@ function bindCard(it) {
 
 // ---- 1. Kartičky ----
 function renderCards() {
-  const pool = itemsFor(ui.filter);
+  const noPrice = ui.mode === 'recipes';  // krok „suroviny": jen recept, cenu až později
+  const pool = noPrice ? itemsFor(ui.filter).filter(i => i.ing) : itemsFor(ui.filter);
   if (!pool.length) return empty();
   const it = pickNext(pool);
   const gl = glosFor(it);
@@ -805,7 +808,7 @@ function renderCards() {
           ${it.ing ? `<div class="ing">${esc(it.ing)}</div>` : ''}
           ${it.flavors ? `<div class="ing">Příchutě: <b>${esc(it.flavors.join(', '))}</b></div>` : ''}
           ${gl.length ? `<div class="gl">${gl.map(g => `<div><b>${esc(g.name)}</b> = ${esc(g.short)}</div>`).join('')}</div>` : ''}
-          <div class="price">${fmtPrice(it.price)}</div>
+          ${noPrice ? '' : `<div class="price">${fmtPrice(it.price)}</div>`}
         </div>
       </div>
     </div>` + answerButtons();
@@ -1024,7 +1027,7 @@ function empty(msg) {
 // ===================== INIT =====================
 buildData(load(LS_DATA, null) || DEFAULT_DATA);
 if (![...$('#filter').options].some(o => o.value === ui.filter)) ui.filter = 'all';
-if (!['path', 'glos', 'cards', 'price', 'ing', 'browse', 'flav'].includes(ui.mode)) ui.mode = 'path';
+if (!['path', 'glos', 'cards', 'price', 'ing', 'browse', 'flav', 'recipes'].includes(ui.mode)) ui.mode = 'path';
 $('#filter').onchange = () => { ui.filter = $('#filter').value; session = { ok: 0, ko: 0 }; render(); };
 
 document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
