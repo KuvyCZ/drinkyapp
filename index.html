@@ -36,7 +36,7 @@
   }
   h1 { margin: 0 0 8px; font-size: 20px; letter-spacing: .5px; }
   h1 span { color: var(--red); }
-  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .tab {
     background: var(--panel); color: var(--text); border: 1px solid var(--line);
     border-radius: 10px; padding: 10px 4px; font-size: 14px; font-weight: 600;
@@ -57,7 +57,7 @@
 
   /* Kartičky */
   .card {
-    perspective: 1000px; height: 300px; margin-bottom: 14px; cursor: pointer; user-select: none;
+    perspective: 1000px; height: 360px; margin-bottom: 14px; cursor: pointer; user-select: none;
   }
   .card-inner {
     position: relative; width: 100%; height: 100%;
@@ -67,7 +67,7 @@
   .face {
     position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden;
     background: var(--panel); border: 2px solid var(--line); border-radius: 18px;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: safe center;
     padding: 20px; text-align: center; overflow: auto;
   }
   .face.back { transform: rotateY(180deg); border-color: var(--red); }
@@ -124,6 +124,33 @@
   .item .st .ok { color: var(--green); } .item .st .ko { color: var(--red); }
   .quest { background: var(--panel); border-left: 4px solid var(--red); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
   .empty { text-align: center; color: var(--muted); padding: 40px 0; }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }
+  .seg button { background: var(--panel); color: var(--muted); border: 1px solid var(--line); border-radius: 10px; padding: 10px 4px; font-size: 14px; font-weight: 600; }
+  .seg button.active { color: #fff; border-color: var(--red); }
+  .face .pron { color: var(--muted); font-size: 16px; font-style: italic; margin-top: 6px; }
+  .face .short { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+  .face .long { font-size: 15px; color: #ddd; margin-bottom: 10px; }
+  .face .drinks { font-size: 13px; color: var(--muted); }
+  .face .drinks b { color: var(--red); }
+  .gl { font-size: 13px; color: var(--muted); text-align: left; margin: -4px 0 12px; width: 100%; }
+  .gl b { color: #ddd; }
+  .intro { color: var(--muted); font-size: 15px; margin: 0 0 14px; }
+  .step {
+    display: flex; gap: 12px; align-items: center; width: 100%; text-align: left;
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 14px; padding: 12px; margin-bottom: 8px; font-size: 16px;
+  }
+  .step.done { border-color: var(--green); }
+  .step .num { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--panel2); display: grid; place-items: center; font-weight: 800; }
+  .step.done .num { background: var(--green); }
+  .step .body { flex: 1; min-width: 0; }
+  .step .t { font-weight: 700; }
+  .step .d { color: var(--muted); font-size: 13px; }
+  .bar { height: 6px; background: var(--panel2); border-radius: 3px; margin-top: 6px; overflow: hidden; }
+  .bar div { height: 100%; background: var(--red); }
+  .step.done .bar div { background: var(--green); }
+  .step .pct { flex: none; font-weight: 700; font-size: 14px; width: 42px; text-align: right; }
+  .glist .item .n small { color: var(--muted); font-weight: 400; font-style: italic; }
   .hidden { display: none !important; }
 </style>
 </head>
@@ -132,12 +159,14 @@
 <header>
   <h1>🍸 Bar <span>kvíz</span></h1>
   <div class="tabs">
+    <button class="tab" data-mode="path">🎯 Učení</button>
+    <button class="tab" data-mode="glos">Suroviny</button>
     <button class="tab" data-mode="cards">Kartičky</button>
     <button class="tab" data-mode="price">Ceny</button>
-    <button class="tab" data-mode="ing">Suroviny</button>
+    <button class="tab" data-mode="ing">Drinky</button>
     <button class="tab" data-mode="browse">Menu</button>
   </div>
-  <div class="filterRow">
+  <div class="filterRow" id="filterRow">
     <select id="filter"></select>
     <button class="small-btn" id="reset">Reset<br>postupu</button>
   </div>
@@ -290,11 +319,92 @@ const SIDEQUESTS = [
   ['Hiroshima', '5× shooter B55'],
 ];
 
+// Slovníček surovin: [název, výslovnost, krátce, vysvětlení, hledané výrazy v surovinách]
+const GLOSSARY = [
+  ['Absolut', 'absolut', 'švédská vodka', 'Značka vodky, kterou používáme do všech vodkových drinků. Existuje i vanilková (Pornstar Martini) a ochucené verze (mango, citron, mandarinka).', ['absolut']],
+  ['Kahlúa', 'kalúa', 'kávový likér', 'Mexický likér z kávy a rumu. Sladký, tmavě hnědý, chutná po kávě a vanilce.', ['kahlua']],
+  ['Chambord', 'šambór', 'malinový likér', 'Francouzský likér z malin a ostružin s vanilkou. Tmavě fialový, sladký. Poznáš ho podle kulaté láhve se zlatou korunkou.', ['chambord']],
+  ['Passoa', 'pasoa', 'likér z marakuji', 'Sladký tropický likér z marakuji (passion fruit), červenooranžový.', ['passoa']],
+  ['Ovocné pyré', 'pyré', 'hustá ovocná dřeň', 'Rozmixované ovoce se sirupem, hustá „kaše". Dává drinku chuť i barvu (mango, marakuja, malina, jahoda…).', ['pyre']],
+  ['Prosecco', 'prosekko', 'italské šumivé víno', 'Lehké bílé šumivé víno z Itálie, suché až lehce nasládlé. Základ všech spritzů.', ['prosecco']],
+  ['Zázvorové pivo (ginger beer)', 'džindžr bír', 'perlivý zázvorový nápoj', 'Nealkoholická perlivá limonáda se zázvorem, lehce pálivá. Není to pivo! U nás Fever-Tree Ginger Beer. Základ všech „Mule" drinků.', ['zazvorove pivo']],
+  ['Kraken', 'krejken', 'tmavý kořeněný rum', 'Černý rum s kořením (spiced rum), sladší, chuť vanilky a skořice. Černá láhev s chobotnicí.', ['kraken']],
+  ['Havana Club', 'havana klab', 'kubánský rum', 'Rum z Kuby. 3y = zraje 3 roky, světlý a lehký (Mojito, Chupito). 7y = zraje 7 let, tmavý a plnější (Planter\'s Punch).', ['havana']],
+  ['Angostura Bitters', 'angostura bitrs', 'hořká bylinná tinktura', 'Hodně koncentrovaný hořký extrakt z bylin a koření. Dává se jen po kapkách (dashích). Malá láhev s velkou papírovou etiketou.', ['angostura']],
+  ['Grenadina', 'grenadýna', 'červený sirup', 'Sladký sytě červený sirup z granátového jablka. Hlavně na barvu a sladkost.', ['grenadin']],
+  ['Campari', 'kampári', 'hořký italský aperitiv', 'Italský bylinný likér, sytě červený a výrazně hořký. Hořčí a silnější než Aperol.', ['campari']],
+  ['Beefeater', 'bífítr', 'londýnský gin', 'London Dry gin: suchý, chuť jalovce a citrusů. Náš gin do všech ginových drinků. Beefeater 0.0 je nealko verze.', ['beefeater']],
+  ['Ostružinový likér', 'krém de mýr', 'sladký likér z ostružin', 'Tmavý sladký likér z ostružin (crème de mûre). Do Brambla se nalévá nakonec, aby stekl dolů.', ['ostruzinovy']],
+  ['Sladký vermut', 'vermut', 'bylinné víno', 'Víno ochucené bylinami a kořením, sladké a tmavě červené (třeba Martini Rosso). Třetina Negroni.', ['vermut']],
+  ['Jameson', 'džejmsn', 'irská whiskey', 'Nejznámější irská whiskey, jemná a lehká. Black Barrel je její plnější verze.', ['jameson']],
+  ['Bourbon', 'burbn', 'americká whiskey', 'Whiskey z USA, hlavně z kukuřice, zraje v nových dubových sudech. Sladší, chuť vanilky a karamelu.', ['bourbon']],
+  ['Altos', 'altos', 'tequila', 'Mexická tequila Olmeca Altos ze 100 % agáve. Naše tequila do míchaných drinků.', ['altos']],
+  ['Cointreau', 'kuantró', 'pomerančový likér', 'Francouzský čirý likér z pomerančové kůry (triple sec). Sladký, výrazně pomerančový.', ['cointreau']],
+  ['Tajín', 'tachín', 'mexické koření', 'Směs sušeného chilli, limety a soli. Dává se na okraj skla, je slano-pálivě-kyselá.', ['tajin']],
+  ['Tabasco', 'tabasko', 'pálivá omáčka', 'Pálivá chilli omáčka, dává se jen pár kapek.', ['tabasco']],
+  ['Sarti', 'sarty', 'italský ovocný aperitiv', 'Sarti Rosa: růžový italský aperitiv, ovocný (červené ovoce, citrusy), méně hořký než Aperol.', ['sarti']],
+  ['Aperol', 'aperol', 'oranžový aperitiv', 'Italský hořkosladký aperitiv, oranžový, chuť pomeranče. Lehčí a sladší než Campari.', ['aperol']],
+  ['Bezinkový sirup', 'bezinka', 'sirup z bezových květů', 'Sladký sirup z květů bezu černého (elderflower). Květinová, svěží chuť, základ Huga.', ['bezinkovy sirup']],
+  ['Bezinkový likér', 'bezinka', 'likér z bezových květů', 'Alkoholická verze bezinky (třeba St-Germain). Sladký a květinový.', ['bezinkovy liker']],
+  ['Fialka', 'fialka', 'fialkový sirup', 'Sirup z fialek. Květinová, parfémová chuť a fialová barva (Viola Spritz).', ['fialka']],
+  ['Italicus', 'italikus', 'bergamotový likér', 'Italský likér z bergamotu (citrus jako v čaji Earl Grey) a bylin. Světlý, svěží, hořkosladký. Světle modrá láhev.', ['italicus']],
+  ['Blue Curaçao', 'blú kurasao', 'modrý pomerančový likér', 'Pomerančový likér obarvený na zářivě modro. Hlavně kvůli barvě (Adios).', ['curacao']],
+  ['Proud', 'proud', 'naše lahvové pivo', 'Pivo z experimentálního pivovaru Plzeňského Prazdroje. Prodáváme ho lahvové a je v Beergaritě.', ['proud']],
+  ['Worcester', 'vustr', 'anglická omáčka', 'Worcestershire omáčka: tmavá, slaná, kořeněná, umami. Dává se po kapkách (Micheláďa).', ['worcester']],
+  ['Absint', 'absint', 'silná pelyňková pálenka', 'Pálenka s pelyňkem a anýzem, zelená, kolem 70 % alkoholu. Chuť jako lékořice.', ['absint']],
+  ['Lillet Blanc', 'lilé blan', 'francouzský vinný aperitiv', 'Aperitiv z bílého vína a ovocných likérů. Lehký, citrusový, s tónem medu.', ['lillet']],
+  ['Crodino', 'krodýno', 'nealko hořký aperitiv', 'Italský nealkoholický aperitiv, oranžový a hořkosladký. Chutná podobně jako Aperol, ale bez alkoholu.', ['crodino']],
+  ['Baileys', 'bejlís', 'smetanový likér', 'Irský krémový likér ze smetany a whiskey. Sladký, chuť kakaa a vanilky.', ['baileys']],
+  ['Koktejlová třešeň', 'maraskino', 'kandovaná třešeň', 'Třešeň naložená v cukrovém sirupu, sytě červená a sladká. Používá se na ozdobu i do Chupita.', ['tresen']],
+  ['Grepová soda', 'grep', 'perlivá grepová limonáda', 'Perlivá limonáda z růžového grepu (Fever-Tree Pink Grapefruit). Hořkosladká.', ['grepova soda']],
+  ['Citrusové aromatické oleje', '', 'vonné oleje z kůry', 'Oleje vymačkané z kůry citrusů, dávají drinku vůni. V Classic Lemonade.', ['aromaticke oleje']],
+];
+
 // Rozbalení do plochého seznamu
 const ITEMS = [];
 MENU.forEach(sec => sec.items.forEach(([n, ing, p, note]) => {
   ITEMS.push({ key: sec.id + '|' + n, sec: sec.id, secName: sec.name, name: n, ing, price: p, note });
 }));
+
+const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+const GLOS = GLOSSARY.map(([name, pron, short, long, terms]) => ({
+  key: 'g|' + name, name, pron, short, long, terms,
+  drinks: ITEMS.filter(i => i.ing && terms.some(t => norm(i.ing).includes(t))).map(i => i.name),
+}));
+const glosFor = item => item.ing ? GLOS.filter(g => g.terms.some(t => norm(item.ing).includes(t))) : [];
+
+// Skupiny sekcí pro filtr
+const MIXED = ['vodka', 'rum', 'gin', 'whisky-tequila', 'spritz', 'specialy', 'mocktaily', 'shooters'];
+const PANAKY = ['p-whisky', 'p-gin', 'p-vodka', 'p-rum', 'p-likery'];
+const OSTATNI = ['pivo', 'nealko', 'teple', 'kava', 'vino', 'tousty', 'snacky'];
+const GROUPS = {
+  mixed: { name: 'Všechny míchané drinky', secs: MIXED },
+  panaky: { name: 'Všechny panáky', secs: PANAKY },
+  ostatni: { name: 'Pivo, nealko, káva, víno, jídlo', secs: OSTATNI },
+};
+const itemsFor = f => f === 'all' ? ITEMS
+  : GROUPS[f] ? ITEMS.filter(i => GROUPS[f].secs.includes(i.sec))
+  : ITEMS.filter(i => i.sec === f);
+
+// Postup učení
+const secName = id => MENU.find(s => s.id === id).name;
+const STEPS = [
+  { t: 'Suroviny', d: 'Nejdřív co je Kahlúa, Cointreau, Campari…', mode: 'glos' },
+  ...MIXED.map(id => ({ t: secName(id), d: 'Kartičky: suroviny a cena', mode: 'cards', filter: id })),
+  { t: 'Ceny míchaných drinků', d: 'Kvíz na ceny', mode: 'price', filter: 'mixed' },
+  { t: 'Poznej drink podle surovin', d: 'Opakování všech míchaných', mode: 'ing', filter: 'mixed' },
+  { t: 'Panáky', d: 'Kartičky: whisky, giny, vodky, rumy, likéry', mode: 'cards', filter: 'panaky' },
+  { t: 'Ceny panáků', d: 'Kvíz na ceny', mode: 'price', filter: 'panaky' },
+  { t: 'Pivo, nealko, káva, víno, jídlo', d: 'Kartičky', mode: 'cards', filter: 'ostatni' },
+  { t: 'Ceny ostatního', d: 'Kvíz na ceny', mode: 'price', filter: 'ostatni' },
+];
+const PREFIX = { price: 'price|' };  // ceny se počítají zvlášť od kartiček
+function stepPool(st) {
+  if (st.mode === 'glos') return GLOS;
+  const p = itemsFor(st.filter);
+  return st.mode === 'price' ? p.filter(i => i.price > 0) : st.mode === 'ing' ? p.filter(i => i.ing) : p;
+}
 
 // ===================== STAV =====================
 const LS_PROGRESS = 'barquiz_progress_v1';
@@ -308,59 +418,157 @@ function save(key, val) {
 }
 
 let progress = load(LS_PROGRESS, {});           // { key: { ok, ko } }
-const ui = Object.assign({ mode: 'cards', filter: 'all' }, load(LS_UI, {}));
+const ui = Object.assign({ mode: 'path', filter: 'all', gmode: 'cards' }, load(LS_UI, {}));
 let lastKey = null;
 let session = { ok: 0, ko: 0 };
 
-function stat(item) { return progress[item.key] || { ok: 0, ko: 0 }; }
-function record(item, correct) {
-  const s = Object.assign({ ok: 0, ko: 0 }, progress[item.key]);
+function stat(item, pre = '') { return progress[pre + item.key] || { ok: 0, ko: 0 }; }
+function record(item, correct, pre = '') {
+  const s = Object.assign({ ok: 0, ko: 0 }, progress[pre + item.key]);
   correct ? s.ok++ : s.ko++;
-  progress[item.key] = s;
+  progress[pre + item.key] = s;
   save(LS_PROGRESS, progress);
   correct ? session.ok++ : session.ko++;
 }
+// „Umím" = aspoň 2× správně a víc správně než špatně
+const isKnown = (item, pre = '') => { const s = stat(item, pre); return s.ok >= 2 && s.ok > s.ko; };
 
 // ===================== POMOCNÉ =====================
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtPrice = p => p === 0 ? 'ZDARMA' : p + ' Kč';
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-function filtered() {
-  return ui.filter === 'all' ? ITEMS
-    : ui.filter === 'mixed' ? ITEMS.filter(i => i.ing)
-    : ITEMS.filter(i => i.sec === ui.filter);
-}
+const filtered = () => itemsFor(ui.filter);
 
 // Váha: neznámé a často špatně zodpovězené položky chodí častěji
-function weight(item) {
-  const s = stat(item);
+function weight(item, pre) {
+  const s = stat(item, pre);
   if (s.ok + s.ko === 0) return 3;
   return Math.max(0.25, 1 + s.ko * 2 - s.ok * 0.7);
 }
-function pickWeighted(pool) {
+function pickWeighted(pool, pre = '') {
   if (pool.length > 1) pool = pool.filter(i => i.key !== lastKey);
-  const total = pool.reduce((a, i) => a + weight(i), 0);
+  const total = pool.reduce((a, i) => a + weight(i, pre), 0);
   let r = Math.random() * total;
-  for (const i of pool) { r -= weight(i); if (r <= 0) { lastKey = i.key; return i; } }
+  for (const i of pool) { r -= weight(i, pre); if (r <= 0) { lastKey = i.key; return i; } }
   lastKey = pool[pool.length - 1].key;
   return pool[pool.length - 1];
 }
 
-function statsLine(pool) {
-  const known = pool.filter(i => { const s = stat(i); return s.ok > 0 && s.ok > s.ko; }).length;
+function statsLine(pool, pre = '') {
+  const known = pool.filter(i => isKnown(i, pre)).length;
   return `<div class="stats">Umím <b>${known}</b> / ${pool.length} · Tohle kolo: <b style="color:var(--green)">${session.ok}</b> ✓ <b style="color:var(--red)">${session.ko}</b> ✗</div>`;
 }
 
 // ===================== REŽIMY =====================
 function render() {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.mode === ui.mode));
+  $('#filterRow').classList.toggle('hidden', ui.mode === 'path' || ui.mode === 'glos');
   $('#searchRow').classList.toggle('hidden', ui.mode !== 'browse');
-  save(LS_UI, { mode: ui.mode, filter: ui.filter });
-  ({ cards: renderCards, price: renderPrice, ing: renderIng, browse: renderBrowse })[ui.mode]();
+  $('#filter').value = ui.filter;
+  save(LS_UI, { mode: ui.mode, filter: ui.filter, gmode: ui.gmode });
+  ({ path: renderPath, glos: renderGlos, cards: renderCards, price: renderPrice, ing: renderIng, browse: renderBrowse })[ui.mode]();
   window.scrollTo(0, 0);
+}
+
+function go(mode, filter) {
+  ui.mode = mode;
+  if (filter) ui.filter = filter;
+  session = { ok: 0, ko: 0 };
+  render();
+}
+
+// ---- 0. Postup učení ----
+function renderPath() {
+  const pct = st => { const p = stepPool(st); return Math.round(100 * p.filter(i => isKnown(i, PREFIX[st.mode])).length / p.length); };
+  const pcts = STEPS.map(pct);
+  const nextIdx = pcts.findIndex(p => p < 80);
+  $('#main').innerHTML =
+    `<p class="intro">Jdi odshora dolů. Krok je hotový na 80 %. Položka se počítá jako naučená, když ji víš aspoň 2× a častěji správně než špatně.</p>` +
+    (nextIdx >= 0
+      ? `<button class="btn red" id="cont">▶ Pokračovat: ${esc(STEPS[nextIdx].t)}</button>`
+      : `<div class="stats" style="font-size:18px">🏆 Umíš celé menu!</div>`) +
+    STEPS.map((st, i) => `
+      <button class="step ${pcts[i] >= 80 ? 'done' : ''}" data-i="${i}">
+        <div class="num">${pcts[i] >= 80 ? '✓' : i + 1}</div>
+        <div class="body"><div class="t">${esc(st.t)}</div><div class="d">${esc(st.d)}</div>
+          <div class="bar"><div style="width:${pcts[i]}%"></div></div></div>
+        <div class="pct">${pcts[i]} %</div>
+      </button>`).join('');
+  const start = st => { if (st.mode === 'glos') ui.gmode = 'cards'; go(st.mode, st.filter || 'all'); };
+  if (nextIdx >= 0) $('#cont').onclick = () => start(STEPS[nextIdx]);
+  document.querySelectorAll('.step').forEach(b => b.onclick = () => start(STEPS[+b.dataset.i]));
+}
+
+// ---- Suroviny ----
+function renderGlos() {
+  const seg = `<div class="seg">` + [['cards', 'Kartičky'], ['quiz', 'Kvíz'], ['list', 'Seznam']]
+    .map(([m, l]) => `<button data-g="${m}" class="${ui.gmode === m ? 'active' : ''}">${l}</button>`).join('') + `</div>`;
+  const bindSeg = () => document.querySelectorAll('.seg button').forEach(b => b.onclick = () => { ui.gmode = b.dataset.g; session = { ok: 0, ko: 0 }; render(); });
+  const drinksLine = g => g.drinks.length ? `<div class="drinks">V drincích: <b>${esc(g.drinks.join(', '))}</b></div>` : '';
+
+  if (ui.gmode === 'list') {
+    $('#main').innerHTML = seg + `<div class="glist">` + GLOS.map(g => {
+      const s = stat(g);
+      return `<div class="item"><div class="l">
+        <div class="n">${esc(g.name)} ${g.pron ? `<small>„${esc(g.pron)}"</small>` : ''}</div>
+        <div class="i"><b style="color:#ddd">${esc(g.short)}.</b> ${esc(g.long)}</div>
+        ${g.drinks.length ? `<div class="i">🍸 ${esc(g.drinks.join(', '))}</div>` : ''}
+        ${s.ok + s.ko ? `<div class="st"><span class="ok">✓ ${s.ok}</span> · <span class="ko">✗ ${s.ko}</span></div>` : ''}
+      </div></div>`;
+    }).join('') + `</div>`;
+    return bindSeg();
+  }
+
+  const g = pickWeighted(GLOS);
+  if (ui.gmode === 'cards') {
+    $('#main').innerHTML = seg + statsLine(GLOS) + `
+      <div class="card" id="card"><div class="card-inner">
+        <div class="face front">
+          <div class="sec">Surovina</div>
+          <div class="name">${esc(g.name)}</div>
+          ${g.pron ? `<div class="pron">„${esc(g.pron)}"</div>` : ''}
+          <div class="hint">Co to je? Klepni pro otočení</div>
+        </div>
+        <div class="face back">
+          <div class="sec">${esc(g.name)}</div>
+          <div class="short">${esc(g.short)}</div>
+          <div class="long">${esc(g.long)}</div>
+          ${drinksLine(g)}
+        </div>
+      </div></div>` + answerButtons();
+    bindCard(g);
+  } else {
+    // v otázce skryjeme název suroviny, aby nebyl vidět
+    let q = g.long;
+    g.name.split(/[\s()]+/).filter(w => w.length > 3).forEach(w => {
+      q = q.replace(new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '…');
+    });
+    const opts = shuffle([g.name, ...shuffle(GLOS.filter(x => x !== g)).slice(0, 3).map(x => x.name)]);
+    renderQuiz(g, `<div class="sec">Co je to za surovinu?</div><div class="q ing">${esc(g.short)}</div><div class="sub">${esc(q)}</div>`,
+      opts, g.name, '', seg + statsLine(GLOS), drinksLine(g));
+  }
+  bindSeg();
+}
+
+function answerButtons() {
+  return `<div id="answer" class="two hidden">
+      <button class="btn red" id="no">Nevěděl jsem</button>
+      <button class="btn green" id="yes">Věděl jsem</button>
+    </div>
+    <button class="btn outline" id="flip">Otočit</button>`;
+}
+function bindCard(it) {
+  const flip = () => {
+    $('#card').classList.toggle('flipped');
+    $('#answer').classList.remove('hidden');
+    $('#flip').classList.add('hidden');
+  };
+  $('#card').onclick = flip;
+  $('#flip').onclick = flip;
+  $('#yes').onclick = () => { record(it, true); render(); };
+  $('#no').onclick = () => { record(it, false); render(); };
 }
 
 // ---- 1. Kartičky ----
@@ -368,6 +576,7 @@ function renderCards() {
   const pool = filtered();
   if (!pool.length) return empty();
   const it = pickWeighted(pool);
+  const gl = glosFor(it);
   $('#main').innerHTML = statsLine(pool) + `
     <div class="card" id="card">
       <div class="card-inner">
@@ -380,32 +589,20 @@ function renderCards() {
         <div class="face back">
           <div class="sec">${esc(it.name)}</div>
           ${it.ing ? `<div class="ing">${esc(it.ing)}</div>` : ''}
+          ${gl.length ? `<div class="gl">${gl.map(g => `<div><b>${esc(g.name)}</b> = ${esc(g.short)}</div>`).join('')}</div>` : ''}
           <div class="price">${fmtPrice(it.price)}</div>
         </div>
       </div>
-    </div>
-    <div id="answer" class="two hidden">
-      <button class="btn red" id="no">Nevěděl jsem</button>
-      <button class="btn green" id="yes">Věděl jsem</button>
-    </div>
-    <button class="btn outline" id="flip">Otočit</button>`;
-  const flip = () => {
-    $('#card').classList.toggle('flipped');
-    $('#answer').classList.remove('hidden');
-    $('#flip').classList.add('hidden');
-  };
-  $('#card').onclick = flip;
-  $('#flip').onclick = flip;
-  $('#yes').onclick = () => { record(it, true); renderCards(); };
-  $('#no').onclick = () => { record(it, false); renderCards(); };
+    </div>` + answerButtons();
+  bindCard(it);
 }
 
 // ---- společné pro kvízy ----
-function renderQuiz(it, questionHtml, options, correctLabel) {
-  const pool = filtered();
-  $('#main').innerHTML = statsLine(ui.mode === 'ing' ? pool.filter(i => i.ing) : pool.filter(i => i.price > 0)) +
+function renderQuiz(it, questionHtml, options, correctLabel, pre, top, explain = '') {
+  $('#main').innerHTML = top +
     `<div class="question">${questionHtml}</div>` +
     options.map(o => `<button class="opt" data-v="${esc(o)}">${esc(o)}</button>`).join('') +
+    `<div class="gl hidden" id="explain" style="text-align:center;margin:4px 0 12px">${explain}</div>` +
     `<button class="btn red hidden" id="next">Další →</button>`;
   const next = () => render();
   document.querySelectorAll('.opt').forEach(b => b.onclick = () => {
@@ -415,9 +612,12 @@ function renderQuiz(it, questionHtml, options, correctLabel) {
       if (x.dataset.v === correctLabel) x.classList.add('correct');
     });
     if (!ok) b.classList.add('wrong');
-    record(it, ok);
+    record(it, ok, pre);
     if (ok) setTimeout(next, 700);
-    else { $('#next').classList.remove('hidden'); $('#next').onclick = next; }
+    else {
+      if (explain) $('#explain').classList.remove('hidden');
+      $('#next').classList.remove('hidden'); $('#next').onclick = next;
+    }
   });
 }
 
@@ -425,7 +625,8 @@ function renderQuiz(it, questionHtml, options, correctLabel) {
 function renderPrice() {
   const pool = filtered().filter(i => i.price > 0);
   if (!pool.length) return empty('V této sekci nejsou položky s cenou.');
-  const it = pickWeighted(pool);
+  const pre = PREFIX.price;
+  const it = pickWeighted(pool, pre);
   // distraktory: nejdřív reálné ceny ze stejné sekce, pak blízké ceny
   const set = new Set([it.price]);
   shuffle(ITEMS.filter(i => i.sec === it.sec && i.price > 0).map(i => i.price))
@@ -436,10 +637,10 @@ function renderPrice() {
   renderQuiz(it,
     `<div class="sec">${esc(it.secName)}</div><div class="q">${esc(it.name)}</div>` +
     (it.note ? `<div class="sub">${esc(it.note)}</div>` : '') + `<div class="sub">Kolik to stojí?</div>`,
-    opts, fmtPrice(it.price));
+    opts, fmtPrice(it.price), pre, statsLine(pool, pre));
 }
 
-// ---- 3. Kvíz suroviny ----
+// ---- 3. Kvíz: poznej drink podle surovin ----
 function renderIng() {
   const pool = filtered().filter(i => i.ing);
   if (!pool.length) return empty('V této sekci nejsou drinky se surovinami. Vyber jinou sekci.');
@@ -449,19 +650,21 @@ function renderIng() {
   const other = shuffle(all.filter(i => i.sec !== it.sec));
   const names = new Set([it.name]);
   [...same, ...other].forEach(i => { if (names.size < 4) names.add(i.name); });
+  const gl = glosFor(it);
   renderQuiz(it,
     `<div class="sec">Který drink to je?</div><div class="q ing">${esc(it.ing)}</div>`,
-    shuffle([...names]), it.name);
+    shuffle([...names]), it.name, '', statsLine(pool),
+    gl.map(g => `<div><b>${esc(g.name)}</b> = ${esc(g.short)}</div>`).join(''));
 }
 
 // ---- 4. Prohlížení ----
 function renderBrowse() {
   const q = norm($('#search').value.trim());
   const match = i => !q || norm(i.name + ' ' + (i.ing || '') + ' ' + (i.note || '') + ' ' + i.price).includes(q);
+  const shown = new Set(filtered().map(i => i.sec));
   let html = '';
   MENU.forEach(sec => {
-    if (ui.filter === 'mixed' && !sec.items.some(i => i[1])) return;
-    if (ui.filter !== 'all' && ui.filter !== 'mixed' && ui.filter !== sec.id) return;
+    if (!shown.has(sec.id)) return;
     const items = ITEMS.filter(i => i.sec === sec.id && match(i));
     if (!items.length) return;
     html += `<div class="section"><h2>${esc(sec.name)}</h2>` + items.map(i => {
@@ -488,13 +691,14 @@ function empty(msg) {
 
 // ===================== INIT =====================
 const sel = $('#filter');
-sel.innerHTML = `<option value="all">Celé menu</option><option value="mixed">Jen míchané drinky (vše se surovinami)</option>` +
+sel.innerHTML = `<option value="all">Celé menu</option>` +
+  Object.entries(GROUPS).map(([id, g]) => `<option value="${id}">${esc(g.name)}</option>`).join('') +
   MENU.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
 if (![...sel.options].some(o => o.value === ui.filter)) ui.filter = 'all';
-sel.value = ui.filter;
+if (!['path', 'glos', 'cards', 'price', 'ing', 'browse'].includes(ui.mode)) ui.mode = 'path';
 sel.onchange = () => { ui.filter = sel.value; session = { ok: 0, ko: 0 }; render(); };
 
-document.querySelectorAll('.tab').forEach(t => t.onclick = () => { ui.mode = t.dataset.mode; session = { ok: 0, ko: 0 }; render(); });
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => go(t.dataset.mode));
 $('#search').oninput = () => renderBrowse();
 $('#reset').onclick = () => {
   if (!confirm('Opravdu smazat celý postup?')) return;
