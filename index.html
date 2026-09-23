@@ -127,7 +127,6 @@
   .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }
   .seg button { background: var(--panel); color: var(--muted); border: 1px solid var(--line); border-radius: 10px; padding: 10px 4px; font-size: 14px; font-weight: 600; }
   .seg button.active { color: #fff; border-color: var(--red); }
-  .face .pron { color: var(--muted); font-size: 16px; font-style: italic; margin-top: 6px; }
   .face .short { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
   .face .long { font-size: 15px; color: #ddd; margin-bottom: 10px; }
   .face .drinks { font-size: 13px; color: var(--muted); }
@@ -150,7 +149,6 @@
   .bar div { height: 100%; background: var(--red); }
   .step.done .bar div { background: var(--green); }
   .step .pct { flex: none; font-weight: 700; font-size: 14px; width: 42px; text-align: right; }
-  .glist .item .n small { color: var(--muted); font-weight: 400; font-style: italic; }
   .hidden { display: none !important; }
 </style>
 </head>
@@ -319,45 +317,45 @@ const SIDEQUESTS = [
   ['Hiroshima', '5× shooter B55'],
 ];
 
-// Slovníček surovin: [název, výslovnost, krátce, vysvětlení, hledané výrazy v surovinách]
+// Slovníček surovin: [název, krátce, vysvětlení, hledané výrazy v surovinách]
 const GLOSSARY = [
-  ['Absolut', 'absolut', 'švédská vodka', 'Značka vodky, kterou používáme do všech vodkových drinků. Existuje i vanilková (Pornstar Martini) a ochucené verze (mango, citron, mandarinka).', ['absolut']],
-  ['Kahlúa', 'kalúa', 'kávový likér', 'Mexický likér z kávy a rumu. Sladký, tmavě hnědý, chutná po kávě a vanilce.', ['kahlua']],
-  ['Chambord', 'šambór', 'malinový likér', 'Francouzský likér z malin a ostružin s vanilkou. Tmavě fialový, sladký. Poznáš ho podle kulaté láhve se zlatou korunkou.', ['chambord']],
-  ['Passoa', 'pasoa', 'likér z marakuji', 'Sladký tropický likér z marakuji (passion fruit), červenooranžový.', ['passoa']],
-  ['Ovocné pyré', 'pyré', 'hustá ovocná dřeň', 'Rozmixované ovoce se sirupem, hustá „kaše". Dává drinku chuť i barvu (mango, marakuja, malina, jahoda…).', ['pyre']],
-  ['Prosecco', 'prosekko', 'italské šumivé víno', 'Lehké bílé šumivé víno z Itálie, suché až lehce nasládlé. Základ všech spritzů.', ['prosecco']],
-  ['Zázvorové pivo (ginger beer)', 'džindžr bír', 'perlivý zázvorový nápoj', 'Nealkoholická perlivá limonáda se zázvorem, lehce pálivá. Není to pivo! U nás Fever-Tree Ginger Beer. Základ všech „Mule" drinků.', ['zazvorove pivo']],
-  ['Kraken', 'krejken', 'tmavý kořeněný rum', 'Černý rum s kořením (spiced rum), sladší, chuť vanilky a skořice. Černá láhev s chobotnicí.', ['kraken']],
-  ['Havana Club', 'havana klab', 'kubánský rum', 'Rum z Kuby. 3y = zraje 3 roky, světlý a lehký (Mojito, Chupito). 7y = zraje 7 let, tmavý a plnější (Planter\'s Punch).', ['havana']],
-  ['Angostura Bitters', 'angostura bitrs', 'hořká bylinná tinktura', 'Hodně koncentrovaný hořký extrakt z bylin a koření. Dává se jen po kapkách (dashích). Malá láhev s velkou papírovou etiketou.', ['angostura']],
-  ['Grenadina', 'grenadýna', 'červený sirup', 'Sladký sytě červený sirup z granátového jablka. Hlavně na barvu a sladkost.', ['grenadin']],
-  ['Campari', 'kampári', 'hořký italský aperitiv', 'Italský bylinný likér, sytě červený a výrazně hořký. Hořčí a silnější než Aperol.', ['campari']],
-  ['Beefeater', 'bífítr', 'londýnský gin', 'London Dry gin: suchý, chuť jalovce a citrusů. Náš gin do všech ginových drinků. Beefeater 0.0 je nealko verze.', ['beefeater']],
-  ['Ostružinový likér', 'krém de mýr', 'sladký likér z ostružin', 'Tmavý sladký likér z ostružin (crème de mûre). Do Brambla se nalévá nakonec, aby stekl dolů.', ['ostruzinovy']],
-  ['Sladký vermut', 'vermut', 'bylinné víno', 'Víno ochucené bylinami a kořením, sladké a tmavě červené (třeba Martini Rosso). Třetina Negroni.', ['vermut']],
-  ['Jameson', 'džejmsn', 'irská whiskey', 'Nejznámější irská whiskey, jemná a lehká. Black Barrel je její plnější verze.', ['jameson']],
-  ['Bourbon', 'burbn', 'americká whiskey', 'Whiskey z USA, hlavně z kukuřice, zraje v nových dubových sudech. Sladší, chuť vanilky a karamelu.', ['bourbon']],
-  ['Altos', 'altos', 'tequila', 'Mexická tequila Olmeca Altos ze 100 % agáve. Naše tequila do míchaných drinků.', ['altos']],
-  ['Cointreau', 'kuantró', 'pomerančový likér', 'Francouzský čirý likér z pomerančové kůry (triple sec). Sladký, výrazně pomerančový.', ['cointreau']],
-  ['Tajín', 'tachín', 'mexické koření', 'Směs sušeného chilli, limety a soli. Dává se na okraj skla, je slano-pálivě-kyselá.', ['tajin']],
-  ['Tabasco', 'tabasko', 'pálivá omáčka', 'Pálivá chilli omáčka, dává se jen pár kapek.', ['tabasco']],
-  ['Sarti', 'sarty', 'italský ovocný aperitiv', 'Sarti Rosa: růžový italský aperitiv, ovocný (červené ovoce, citrusy), méně hořký než Aperol.', ['sarti']],
-  ['Aperol', 'aperol', 'oranžový aperitiv', 'Italský hořkosladký aperitiv, oranžový, chuť pomeranče. Lehčí a sladší než Campari.', ['aperol']],
-  ['Bezinkový sirup', 'bezinka', 'sirup z bezových květů', 'Sladký sirup z květů bezu černého (elderflower). Květinová, svěží chuť, základ Huga.', ['bezinkovy sirup']],
-  ['Bezinkový likér', 'bezinka', 'likér z bezových květů', 'Alkoholická verze bezinky (třeba St-Germain). Sladký a květinový.', ['bezinkovy liker']],
-  ['Fialka', 'fialka', 'fialkový sirup', 'Sirup z fialek. Květinová, parfémová chuť a fialová barva (Viola Spritz).', ['fialka']],
-  ['Italicus', 'italikus', 'bergamotový likér', 'Italský likér z bergamotu (citrus jako v čaji Earl Grey) a bylin. Světlý, svěží, hořkosladký. Světle modrá láhev.', ['italicus']],
-  ['Blue Curaçao', 'blú kurasao', 'modrý pomerančový likér', 'Pomerančový likér obarvený na zářivě modro. Hlavně kvůli barvě (Adios).', ['curacao']],
-  ['Proud', 'proud', 'naše lahvové pivo', 'Pivo z experimentálního pivovaru Plzeňského Prazdroje. Prodáváme ho lahvové a je v Beergaritě.', ['proud']],
-  ['Worcester', 'vustr', 'anglická omáčka', 'Worcestershire omáčka: tmavá, slaná, kořeněná, umami. Dává se po kapkách (Micheláďa).', ['worcester']],
-  ['Absint', 'absint', 'silná pelyňková pálenka', 'Pálenka s pelyňkem a anýzem, zelená, kolem 70 % alkoholu. Chuť jako lékořice.', ['absint']],
-  ['Lillet Blanc', 'lilé blan', 'francouzský vinný aperitiv', 'Aperitiv z bílého vína a ovocných likérů. Lehký, citrusový, s tónem medu.', ['lillet']],
-  ['Crodino', 'krodýno', 'nealko hořký aperitiv', 'Italský nealkoholický aperitiv, oranžový a hořkosladký. Chutná podobně jako Aperol, ale bez alkoholu.', ['crodino']],
-  ['Baileys', 'bejlís', 'smetanový likér', 'Irský krémový likér ze smetany a whiskey. Sladký, chuť kakaa a vanilky.', ['baileys']],
-  ['Koktejlová třešeň', 'maraskino', 'kandovaná třešeň', 'Třešeň naložená v cukrovém sirupu, sytě červená a sladká. Používá se na ozdobu i do Chupita.', ['tresen']],
-  ['Grepová soda', 'grep', 'perlivá grepová limonáda', 'Perlivá limonáda z růžového grepu (Fever-Tree Pink Grapefruit). Hořkosladká.', ['grepova soda']],
-  ['Citrusové aromatické oleje', '', 'vonné oleje z kůry', 'Oleje vymačkané z kůry citrusů, dávají drinku vůni. V Classic Lemonade.', ['aromaticke oleje']],
+  ['Absolut', 'švédská vodka', 'Značka vodky, kterou používáme do všech vodkových drinků. Existuje i vanilková (Pornstar Martini) a ochucené verze (mango, citron, mandarinka).', ['absolut']],
+  ['Kahlúa', 'kávový likér', 'Mexický likér z kávy a rumu. Sladký, tmavě hnědý, chutná po kávě a vanilce.', ['kahlua']],
+  ['Chambord', 'malinový likér', 'Francouzský likér z malin a ostružin s vanilkou. Tmavě fialový, sladký. Poznáš ho podle kulaté láhve se zlatou korunkou.', ['chambord']],
+  ['Passoa', 'likér z marakuji', 'Sladký tropický likér z marakuji (passion fruit), červenooranžový.', ['passoa']],
+  ['Ovocné pyré', 'hustá ovocná dřeň', 'Rozmixované ovoce se sirupem, hustá „kaše". Dává drinku chuť i barvu (mango, marakuja, malina, jahoda…).', ['pyre']],
+  ['Prosecco', 'italské šumivé víno', 'Lehké bílé šumivé víno z Itálie, suché až lehce nasládlé. Základ všech spritzů.', ['prosecco']],
+  ['Zázvorové pivo (ginger beer)', 'perlivý zázvorový nápoj', 'Nealkoholická perlivá limonáda se zázvorem, lehce pálivá. Není to pivo! U nás Fever-Tree Ginger Beer. Základ všech „Mule" drinků.', ['zazvorove pivo']],
+  ['Kraken', 'tmavý kořeněný rum', 'Černý rum s kořením (spiced rum), sladší, chuť vanilky a skořice. Černá láhev s chobotnicí.', ['kraken']],
+  ['Havana Club', 'kubánský rum', 'Rum z Kuby. 3y = zraje 3 roky, světlý a lehký (Mojito, Chupito). 7y = zraje 7 let, tmavý a plnější (Planter\'s Punch).', ['havana']],
+  ['Angostura Bitters', 'hořká bylinná tinktura', 'Hodně koncentrovaný hořký extrakt z bylin a koření. Dává se jen po kapkách (dashích). Malá láhev s velkou papírovou etiketou.', ['angostura']],
+  ['Grenadina', 'červený sirup', 'Sladký sytě červený sirup z granátového jablka. Hlavně na barvu a sladkost.', ['grenadin']],
+  ['Campari', 'hořký italský aperitiv', 'Italský bylinný likér, sytě červený a výrazně hořký. Hořčí a silnější než Aperol.', ['campari']],
+  ['Beefeater', 'londýnský gin', 'London Dry gin: suchý, chuť jalovce a citrusů. Náš gin do všech ginových drinků. Beefeater 0.0 je nealko verze.', ['beefeater']],
+  ['Ostružinový likér', 'sladký likér z ostružin', 'Tmavý sladký likér z ostružin (crème de mûre). Do Brambla se nalévá nakonec, aby stekl dolů.', ['ostruzinovy']],
+  ['Sladký vermut', 'bylinné víno', 'Víno ochucené bylinami a kořením, sladké a tmavě červené (třeba Martini Rosso). Třetina Negroni.', ['vermut']],
+  ['Jameson', 'irská whiskey', 'Nejznámější irská whiskey, jemná a lehká. Black Barrel je její plnější verze.', ['jameson']],
+  ['Bourbon', 'americká whiskey', 'Whiskey z USA, hlavně z kukuřice, zraje v nových dubových sudech. Sladší, chuť vanilky a karamelu.', ['bourbon']],
+  ['Altos', 'tequila', 'Mexická tequila Olmeca Altos ze 100 % agáve. Naše tequila do míchaných drinků.', ['altos']],
+  ['Cointreau', 'pomerančový likér', 'Francouzský čirý likér z pomerančové kůry (triple sec). Sladký, výrazně pomerančový.', ['cointreau']],
+  ['Tajín', 'mexické koření', 'Směs sušeného chilli, limety a soli. Dává se na okraj skla, je slano-pálivě-kyselá.', ['tajin']],
+  ['Tabasco', 'pálivá omáčka', 'Pálivá chilli omáčka, dává se jen pár kapek.', ['tabasco']],
+  ['Sarti', 'italský ovocný aperitiv', 'Sarti Rosa: růžový italský aperitiv, ovocný (červené ovoce, citrusy), méně hořký než Aperol.', ['sarti']],
+  ['Aperol', 'oranžový aperitiv', 'Italský hořkosladký aperitiv, oranžový, chuť pomeranče. Lehčí a sladší než Campari.', ['aperol']],
+  ['Bezinkový sirup', 'sirup z bezových květů', 'Sladký sirup z květů bezu černého (elderflower). Květinová, svěží chuť, základ Huga.', ['bezinkovy sirup']],
+  ['Bezinkový likér', 'likér z bezových květů', 'Alkoholická verze bezinky (třeba St-Germain). Sladký a květinový.', ['bezinkovy liker']],
+  ['Fialka', 'fialkový sirup', 'Sirup z fialek. Květinová, parfémová chuť a fialová barva (Viola Spritz).', ['fialka']],
+  ['Italicus', 'bergamotový likér', 'Italský likér z bergamotu (citrus jako v čaji Earl Grey) a bylin. Světlý, svěží, hořkosladký. Světle modrá láhev.', ['italicus']],
+  ['Blue Curaçao', 'modrý pomerančový likér', 'Pomerančový likér obarvený na zářivě modro. Hlavně kvůli barvě (Adios).', ['curacao']],
+  ['Proud', 'naše lahvové pivo', 'Pivo z experimentálního pivovaru Plzeňského Prazdroje. Prodáváme ho lahvové a je v Beergaritě.', ['proud']],
+  ['Worcester', 'anglická omáčka', 'Worcestershire omáčka: tmavá, slaná, kořeněná, umami. Dává se po kapkách (Micheláďa).', ['worcester']],
+  ['Absint', 'silná pelyňková pálenka', 'Pálenka s pelyňkem a anýzem, zelená, kolem 70 % alkoholu. Chuť jako lékořice.', ['absint']],
+  ['Lillet Blanc', 'francouzský vinný aperitiv', 'Aperitiv z bílého vína a ovocných likérů. Lehký, citrusový, s tónem medu.', ['lillet']],
+  ['Crodino', 'nealko hořký aperitiv', 'Italský nealkoholický aperitiv, oranžový a hořkosladký. Chutná podobně jako Aperol, ale bez alkoholu.', ['crodino']],
+  ['Baileys', 'smetanový likér', 'Irský krémový likér ze smetany a whiskey. Sladký, chuť kakaa a vanilky.', ['baileys']],
+  ['Koktejlová třešeň', 'kandovaná třešeň', 'Třešeň naložená v cukrovém sirupu, sytě červená a sladká. Používá se na ozdobu i do Chupita.', ['tresen']],
+  ['Grepová soda', 'perlivá grepová limonáda', 'Perlivá limonáda z růžového grepu (Fever-Tree Pink Grapefruit). Hořkosladká.', ['grepova soda']],
+  ['Citrusové aromatické oleje', 'vonné oleje z kůry', 'Oleje vymačkané z kůry citrusů, dávají drinku vůni. V Classic Lemonade.', ['aromaticke oleje']],
 ];
 
 // Rozbalení do plochého seznamu
@@ -368,8 +366,8 @@ MENU.forEach(sec => sec.items.forEach(([n, ing, p, note]) => {
 
 const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-const GLOS = GLOSSARY.map(([name, pron, short, long, terms]) => ({
-  key: 'g|' + name, name, pron, short, long, terms,
+const GLOS = GLOSSARY.map(([name, short, long, terms]) => ({
+  key: 'g|' + name, name, short, long, terms,
   drinks: ITEMS.filter(i => i.ing && terms.some(t => norm(i.ing).includes(t))).map(i => i.name),
 }));
 const glosFor = item => item.ing ? GLOS.filter(g => g.terms.some(t => norm(item.ing).includes(t))) : [];
@@ -512,7 +510,7 @@ function renderGlos() {
     $('#main').innerHTML = seg + `<div class="glist">` + GLOS.map(g => {
       const s = stat(g);
       return `<div class="item"><div class="l">
-        <div class="n">${esc(g.name)} ${g.pron ? `<small>„${esc(g.pron)}"</small>` : ''}</div>
+        <div class="n">${esc(g.name)}</div>
         <div class="i"><b style="color:#ddd">${esc(g.short)}.</b> ${esc(g.long)}</div>
         ${g.drinks.length ? `<div class="i">🍸 ${esc(g.drinks.join(', '))}</div>` : ''}
         ${s.ok + s.ko ? `<div class="st"><span class="ok">✓ ${s.ok}</span> · <span class="ko">✗ ${s.ko}</span></div>` : ''}
@@ -528,7 +526,6 @@ function renderGlos() {
         <div class="face front">
           <div class="sec">Surovina</div>
           <div class="name">${esc(g.name)}</div>
-          ${g.pron ? `<div class="pron">„${esc(g.pron)}"</div>` : ''}
           <div class="hint">Co to je? Klepni pro otočení</div>
         </div>
         <div class="face back">
