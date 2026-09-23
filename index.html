@@ -403,7 +403,7 @@ const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u03
 const uniq = a => [...new Set(a)];
 
 // ===================== SESTAVENÍ DAT =====================
-let DATA, SECTIONS, ITEMS, GLOS, SIDEQUESTS, GROUPS, STEPS;
+let DATA, SECTIONS, ITEMS, FLAV, GLOS, SIDEQUESTS, GROUPS, STEPS;
 
 function buildData(d) {
   DATA = d;
@@ -411,6 +411,12 @@ function buildData(d) {
     key: name, group: group || 'Ostatní', sec: sec || group || 'Ostatní', secName: sec || group || 'Ostatní',
     name, ing: ing || null, price: Number(price) || 0, note: note || '',
   }));
+  // druhy/příchutě z poznámky („Malina / Jahoda / …"), počítají se od 3 druhů
+  ITEMS.forEach(i => {
+    const f = i.note.split('/').map(x => x.trim()).filter(Boolean);
+    i.flavors = f.length >= 3 ? f : null;
+  });
+  FLAV = ITEMS.filter(i => i.flavors);
   SECTIONS = uniq(ITEMS.map(i => i.sec)).map(s => ({ id: s, name: s, group: ITEMS.find(i => i.sec === s).group }));
   GLOS = d.sur.filter(r => r[0]).map(([name, short, long, terms]) => {
     const t = (terms ? String(terms).split(',') : [name]).map(x => norm(x.trim())).filter(Boolean);
@@ -427,6 +433,7 @@ function buildData(d) {
   GROUPS = [...groups.filter(hasIng), ...groups.filter(g => !hasIng(g) && g !== 'Ostatní'), ...groups.filter(g => !hasIng(g) && g === 'Ostatní')];
 
   STEPS = [{ t: 'Suroviny', d: 'Nejdřív co je Kahlúa, Cointreau, Campari…', mode: 'glos' }];
+  if (FLAV.length) STEPS.push({ t: 'Druhy pyré a limonád', d: 'Příchutě: ' + FLAV.map(i => i.name).join(', '), mode: 'flav' });
   GROUPS.forEach(g => {
     if (hasIng(g)) {
       SECTIONS.filter(s => s.group === g).forEach(s =>
@@ -452,9 +459,10 @@ const itemsFor = f => f === 'all' ? ITEMS
   : f.startsWith('grp:') ? ITEMS.filter(i => i.group === f.slice(4))
   : ITEMS.filter(i => i.sec === f.slice(4));
 
-const PREFIX = { price: 'price|' };  // ceny se počítají zvlášť od kartiček
+const PREFIX = { price: 'price|', flav: 'flav|' };  // ceny a příchutě se počítají zvlášť od kartiček
 function stepPool(st) {
   if (st.mode === 'glos') return GLOS;
+  if (st.mode === 'flav') return FLAV;
   const p = itemsFor(st.filter);
   return st.mode === 'price' ? p.filter(i => i.price > 0) : st.mode === 'ing' ? p.filter(i => i.ing) : p;
 }
@@ -537,8 +545,9 @@ const isKnown = (item, pre = '') => { const s = stat(item, pre); return s.ok >= 
 // Váha: neznámé a často špatně zodpovězené položky chodí častěji
 function weight(item, pre) {
   const s = stat(item, pre);
-  if (s.ok + s.ko === 0) return 3;
-  return Math.max(0.25, 1 + s.ko * 2 - s.ok * 0.7);
+  const boost = item.flavors ? 2 : 1;  // položky s příchutěmi (pyré, limonády) chodí 2× častěji
+  if (s.ok + s.ko === 0) return 3 * boost;
+  return Math.max(0.25, 1 + s.ko * 2 - s.ok * 0.7) * boost;
 }
 function pickWeighted(pool, pre = '') {
   if (pool.length > 1) pool = pool.filter(i => i.key !== lastKey);
@@ -581,6 +590,27 @@ function qIng(it) {
     html: `<div class="sec">Který drink to je?</div><div class="q ing">${esc(it.ing)}</div>`,
     options: shuffle([...names]), correct: it.name,
     explain: glosFor(it).map(g => `<div><b>${esc(g.name)}</b> = ${esc(g.short)}</div>`).join(''),
+  };
+}
+const EXTRA_FLAVORS = ['Borůvka', 'Broskev', 'Ananas', 'Kokos', 'Višeň', 'Meloun', 'Citron', 'Pomeranč', 'Liči', 'Máta', 'Jahoda', 'Malina', 'Mango'];
+function qFlav(it) {
+  const mine = new Set(it.flavors.map(norm));
+  const others = shuffle(uniq([...FLAV.filter(i => i !== it).flatMap(i => i.flavors), ...EXTRA_FLAVORS]))
+    .filter(f => !mine.has(norm(f)) && !it.flavors.some(m => norm(m).includes(norm(f))));
+  const list = `<div>${esc(it.name)}: <b>${esc(it.flavors.join(', '))}</b></div>`;
+  if (Math.random() < 0.5) {
+    const wrong = others[0];
+    return {
+      item: it, pre: PREFIX.flav, text: 'Co NENÍ u: ' + it.name,
+      html: `<div class="sec">${esc(it.secName)}</div><div class="q">${esc(it.name)}</div><div class="sub">Která příchuť tu <b>NENÍ</b>?</div>`,
+      options: shuffle([wrong, ...shuffle(it.flavors).slice(0, 3)]), correct: wrong, explain: list,
+    };
+  }
+  const right = shuffle(it.flavors)[0];
+  return {
+    item: it, pre: PREFIX.flav, text: 'Příchuť u: ' + it.name,
+    html: `<div class="sec">${esc(it.secName)}</div><div class="q">${esc(it.name)}</div><div class="sub">Která příchuť tu <b>JE</b>?</div>`,
+    options: shuffle([right, ...others.slice(0, 3)]), correct: right, explain: list,
   };
 }
 function qGlos(g) {
@@ -626,11 +656,11 @@ let examTimer = null;
 function render() {
   clearInterval(examTimer);
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.mode === ui.mode));
-  $('#filterRow').classList.toggle('hidden', ['path', 'glos', 'exam'].includes(ui.mode));
+  $('#filterRow').classList.toggle('hidden', ['path', 'glos', 'exam', 'flav'].includes(ui.mode));
   $('#searchRow').classList.toggle('hidden', ui.mode !== 'browse');
   $('#filter').value = ui.filter;
   save(LS_UI, { mode: ui.mode === 'exam' ? 'path' : ui.mode, filter: ui.filter, gmode: ui.gmode });
-  ({ path: renderPath, glos: renderGlos, cards: renderCards, price: renderPrice, ing: renderIng, browse: renderBrowse, exam: renderExam })[ui.mode]();
+  ({ path: renderPath, glos: renderGlos, cards: renderCards, price: renderPrice, ing: renderIng, browse: renderBrowse, exam: renderExam, flav: renderFlav })[ui.mode]();
   window.scrollTo(0, 0);
 }
 
@@ -751,18 +781,27 @@ function renderCards() {
         <div class="face front">
           <div class="sec">${esc(it.secName)}</div>
           <div class="name">${esc(it.name)}</div>
-          ${it.note ? `<div class="note">${esc(it.note)}</div>` : ''}
+          ${it.note && !it.flavors ? `<div class="note">${esc(it.note)}</div>` : ''}
+          ${it.flavors ? `<div class="note">Jaké má příchutě?</div>` : ''}
           <div class="hint">Klepni pro otočení</div>
         </div>
         <div class="face back">
           <div class="sec">${esc(it.name)}</div>
           ${it.ing ? `<div class="ing">${esc(it.ing)}</div>` : ''}
+          ${it.flavors ? `<div class="ing">Příchutě: <b>${esc(it.flavors.join(', '))}</b></div>` : ''}
           ${gl.length ? `<div class="gl">${gl.map(g => `<div><b>${esc(g.name)}</b> = ${esc(g.short)}</div>`).join('')}</div>` : ''}
           <div class="price">${fmtPrice(it.price)}</div>
         </div>
       </div>
     </div>` + answerButtons();
   bindCard(it);
+}
+
+// ---- Druhy pyré a limonád ----
+function renderFlav() {
+  if (!FLAV.length) return empty('V menu nejsou položky s příchutěmi.');
+  renderQuiz(qFlav(pickWeighted(FLAV, PREFIX.flav)),
+    `<div class="stats" style="margin-bottom:4px">Druhy pyré a limonád</div>` + statsLine(FLAV, PREFIX.flav), render);
 }
 
 // ---- 2. Kvíz ceny ----
@@ -812,15 +851,17 @@ const EXAM_LEN = 40, EXAM_SECONDS = 20, EXAM_PASS = 90;
 let exam = null;
 
 function newExam() {
-  // cca 1/4 suroviny, zbytek napůl ceny a poznávání drinků
+  // 10 surovin, 4 příchutě, zbytek napůl ceny a poznávání drinků
   const nG = Math.min(GLOS.length, 10);
+  const nF = FLAV.length ? 4 : 0, flav = shuffle(FLAV);
   const withIng = ITEMS.filter(i => i.ing), priced = ITEMS.filter(i => i.price > 0);
-  const nI = Math.min(withIng.length, Math.round((EXAM_LEN - nG) / 2));
-  const nP = Math.min(priced.length, EXAM_LEN - nG - nI);
+  const nI = Math.min(withIng.length, Math.round((EXAM_LEN - nG - nF) / 2));
+  const nP = Math.min(priced.length, EXAM_LEN - nG - nF - nI);
   const qs = [
     ...shuffle(GLOS).slice(0, nG).map(qGlos),
     ...shuffle(withIng).slice(0, nI).map(qIng),
     ...shuffle(priced).slice(0, nP).map(qPrice),
+    ...Array.from({ length: nF }, (_, k) => qFlav(flav[k % flav.length])),
   ];
   return { qs: shuffle(qs), i: 0, answers: [], done: false, practice: null };
 }
@@ -831,7 +872,7 @@ function renderExam() {
     $('#main').innerHTML = `
       <div class="question" style="text-align:left">
         <div class="sec" style="text-align:center">Závěrečná zkouška</div>
-        <div>• ${EXAM_LEN} otázek ze všeho: suroviny, ceny, poznávání drinků</div>
+        <div>• ${EXAM_LEN} otázek ze všeho: suroviny, příchutě, ceny, poznávání drinků</div>
         <div>• Na každou otázku máš ${EXAM_SECONDS} sekund</div>
         <div>• Správné odpovědi uvidíš až na konci</div>
         <div>• Na splnění potřebuješ ${EXAM_PASS} %</div>
@@ -968,7 +1009,7 @@ function empty(msg) {
 // ===================== INIT =====================
 buildData(load(LS_DATA, null) || DEFAULT_DATA);
 if (![...$('#filter').options].some(o => o.value === ui.filter)) ui.filter = 'all';
-if (!['path', 'glos', 'cards', 'price', 'ing', 'browse'].includes(ui.mode)) ui.mode = 'path';
+if (!['path', 'glos', 'cards', 'price', 'ing', 'browse', 'flav'].includes(ui.mode)) ui.mode = 'path';
 $('#filter').onchange = () => { ui.filter = $('#filter').value; session = { ok: 0, ko: 0 }; render(); };
 
 document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
