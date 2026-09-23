@@ -528,7 +528,6 @@ Object.keys(progress).forEach(k => {
   if (nk) { progress[nk] = progress[nk] || progress[k]; delete progress[k]; }
 });
 const ui = Object.assign({ mode: 'path', filter: 'all', gmode: 'cards' }, load(LS_UI, {}));
-let lastKey = null;
 let session = { ok: 0, ko: 0 };
 
 function stat(item, pre = '') { return progress[pre + item.key] || { ok: 0, ko: 0 }; }
@@ -538,24 +537,40 @@ function record(item, correct, pre = '', count = true) {
   progress[pre + item.key] = s;
   save(LS_PROGRESS, progress);
   if (count) correct ? session.ok++ : session.ko++;
+  if (count && !correct) requeue(item);
 }
 // „Umím" = aspoň 2× správně a víc správně než špatně
 const isKnown = (item, pre = '') => { const s = stat(item, pre); return s.ok >= 2 && s.ok > s.ko; };
 
-// Váha: neznámé a často špatně zodpovězené položky chodí častěji
-function weight(item, pre) {
-  const s = stat(item, pre);
-  const boost = item.flavors ? 2 : 1;  // položky s příchutěmi (pyré, limonády) chodí 2× častěji
-  if (s.ok + s.ko === 0) return 3 * boost;
-  return Math.max(0.25, 1 + s.ko * 2 - s.ok * 0.7) * boost;
+// Balíček: každá položka jednou za kolo, nejdřív neznámé, pak ty co už umím.
+// Co nevím, vrátí se za 3–5 karet. Balíčky se pamatují i po zavření appky.
+const LS_DECKS = 'barquiz_decks_v1';
+const decks = load(LS_DECKS, {});
+let current = null;  // { deck, key } – poslední vytažená karta
+function pickNext(pool, pre = '') {
+  const id = ui.mode + '|' + (ui.mode === 'glos' ? ui.gmode : ui.filter);
+  const keys = new Set(pool.map(i => i.key));
+  let deck = (decks[id] || []).filter(k => keys.has(k));
+  if (!deck.length) {
+    const unknown = shuffle(pool.filter(i => !isKnown(i, pre)));
+    const known = shuffle(pool.filter(i => isKnown(i, pre)));
+    deck = [...unknown, ...known].map(i => i.key);
+    // ať nový balíček nezačne tím, co bylo naposledy
+    if (deck.length > 1 && current && deck[0] === current.key) deck.push(deck.shift());
+  }
+  const key = deck.shift();
+  decks[id] = deck;
+  save(LS_DECKS, decks);
+  current = { id, key };
+  return pool.find(i => i.key === key);
 }
-function pickWeighted(pool, pre = '') {
-  if (pool.length > 1) pool = pool.filter(i => i.key !== lastKey);
-  const total = pool.reduce((a, i) => a + weight(i, pre), 0);
-  let r = Math.random() * total;
-  for (const i of pool) { r -= weight(i, pre); if (r <= 0) { lastKey = i.key; return i; } }
-  lastKey = pool[pool.length - 1].key;
-  return pool[pool.length - 1];
+// Špatně → vrátit do balíčku za 3–5 karet
+function requeue(item) {
+  if (!current || current.key !== item.key) return;
+  const deck = decks[current.id] || (decks[current.id] = []);
+  if (deck.includes(item.key)) return;
+  deck.splice(Math.min(deck.length, 3 + Math.floor(Math.random() * 3)), 0, item.key);
+  save(LS_DECKS, decks);
 }
 
 function statsLine(pool, pre = '') {
@@ -723,7 +738,7 @@ function renderGlos() {
   }
 
   if (ui.gmode === 'cards') {
-    const g = pickWeighted(GLOS);
+    const g = pickNext(GLOS);
     $('#main').innerHTML = seg + statsLine(GLOS) + `
       <div class="card" id="card"><div class="card-inner">
         <div class="face front">
@@ -740,7 +755,7 @@ function renderGlos() {
       </div></div>` + answerButtons();
     bindCard(g);
   } else {
-    const q = qGlos(pickWeighted(GLOS));
+    const q = qGlos(pickNext(GLOS));
     renderQuiz(q, seg + statsLine(GLOS), render);
   }
   bindSeg();
@@ -773,7 +788,7 @@ function bindCard(it) {
 function renderCards() {
   const pool = itemsFor(ui.filter);
   if (!pool.length) return empty();
-  const it = pickWeighted(pool);
+  const it = pickNext(pool);
   const gl = glosFor(it);
   $('#main').innerHTML = statsLine(pool) + `
     <div class="card" id="card">
@@ -800,7 +815,7 @@ function renderCards() {
 // ---- Druhy pyré a limonád ----
 function renderFlav() {
   if (!FLAV.length) return empty('V menu nejsou položky s příchutěmi.');
-  renderQuiz(qFlav(pickWeighted(FLAV, PREFIX.flav)),
+  renderQuiz(qFlav(pickNext(FLAV, PREFIX.flav)),
     `<div class="stats" style="margin-bottom:4px">Druhy pyré a limonád</div>` + statsLine(FLAV, PREFIX.flav), render);
 }
 
@@ -808,14 +823,14 @@ function renderFlav() {
 function renderPrice() {
   const pool = itemsFor(ui.filter).filter(i => i.price > 0);
   if (!pool.length) return empty('V této sekci nejsou položky s cenou.');
-  renderQuiz(qPrice(pickWeighted(pool, PREFIX.price)), statsLine(pool, PREFIX.price), render);
+  renderQuiz(qPrice(pickNext(pool, PREFIX.price)), statsLine(pool, PREFIX.price), render);
 }
 
 // ---- 3. Kvíz: poznej drink podle surovin ----
 function renderIng() {
   const pool = itemsFor(ui.filter).filter(i => i.ing);
   if (!pool.length) return empty('V této sekci nejsou drinky se surovinami. Vyber jinou sekci.');
-  renderQuiz(qIng(pickWeighted(pool)), statsLine(pool), render);
+  renderQuiz(qIng(pickNext(pool)), statsLine(pool), render);
 }
 
 // ---- 4. Prohlížení ----
@@ -1022,6 +1037,8 @@ $('#reset').onclick = () => {
   progress = {}; session = { ok: 0, ko: 0 };
   save(LS_PROGRESS, progress);
   save(LS_EXAM, {});
+  Object.keys(decks).forEach(k => delete decks[k]);
+  save(LS_DECKS, decks);
   render();
 };
 
