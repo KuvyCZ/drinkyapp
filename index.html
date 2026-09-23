@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0d0d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bar kvíz">
+<title>Bar kvíz</title>
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --panel: #1a1a1a;
+    --panel2: #242424;
+    --line: #333;
+    --text: #f2f2f2;
+    --muted: #9a9a9a;
+    --red: #e53935;
+    --red-dark: #b71c1c;
+    --green: #43a047;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 17px; line-height: 1.4;
+    padding: env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 16px);
+    min-height: 100vh;
+  }
+  header {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--bg); border-bottom: 2px solid var(--red);
+    padding: 10px 12px 8px;
+  }
+  h1 { margin: 0 0 8px; font-size: 20px; letter-spacing: .5px; }
+  h1 span { color: var(--red); }
+  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .tab {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 4px; font-size: 14px; font-weight: 600;
+  }
+  .tab.active { background: var(--red); border-color: var(--red); }
+  .filterRow { display: flex; gap: 6px; margin-top: 8px; }
+  select, input[type=search] {
+    flex: 1; min-width: 0; background: var(--panel); color: var(--text);
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px; font-size: 16px;
+  }
+  .small-btn {
+    background: var(--panel); color: var(--muted); border: 1px solid var(--line);
+    border-radius: 10px; padding: 0 12px; font-size: 13px;
+  }
+  main { padding: 14px 12px; max-width: 640px; margin: 0 auto; }
+  .stats { color: var(--muted); font-size: 14px; text-align: center; margin-bottom: 10px; }
+  .stats b { color: var(--text); }
+
+  /* Kartičky */
+  .card {
+    perspective: 1000px; height: 300px; margin-bottom: 14px; cursor: pointer; user-select: none;
+  }
+  .card-inner {
+    position: relative; width: 100%; height: 100%;
+    transition: transform .45s; transform-style: preserve-3d;
+  }
+  .card.flipped .card-inner { transform: rotateY(180deg); }
+  .face {
+    position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    background: var(--panel); border: 2px solid var(--line); border-radius: 18px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 20px; text-align: center; overflow: auto;
+  }
+  .face.back { transform: rotateY(180deg); border-color: var(--red); }
+  .face .sec { color: var(--red); font-size: 13px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+  .face .name { font-size: 28px; font-weight: 700; }
+  .face .note { color: var(--muted); font-size: 14px; margin-top: 6px; }
+  .face .ing { font-size: 19px; margin: 8px 0 14px; }
+  .face .price { font-size: 30px; font-weight: 800; color: var(--red); }
+  .face .hint { position: absolute; bottom: 12px; color: var(--muted); font-size: 13px; }
+
+  .btn {
+    display: block; width: 100%; border: none; border-radius: 14px;
+    padding: 18px 12px; font-size: 18px; font-weight: 700; color: #fff;
+    background: var(--panel2); margin-bottom: 10px;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn.red { background: var(--red); }
+  .btn.green { background: var(--green); }
+  .btn.outline { background: transparent; border: 2px solid var(--line); color: var(--muted); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .two .btn { margin: 0; }
+
+  /* Kvíz */
+  .question {
+    background: var(--panel); border-radius: 18px; border: 2px solid var(--line);
+    padding: 22px 16px; text-align: center; margin-bottom: 14px; min-height: 140px;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .question .sec { color: var(--red); font-size: 13px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .question .q { font-size: 24px; font-weight: 700; }
+  .question .q.ing { font-size: 20px; font-weight: 600; }
+  .question .sub { color: var(--muted); font-size: 14px; margin-top: 6px; }
+  .opt {
+    display: block; width: 100%; text-align: center; border: 2px solid var(--line);
+    background: var(--panel); color: var(--text); border-radius: 14px;
+    padding: 18px 12px; font-size: 19px; font-weight: 600; margin-bottom: 10px;
+  }
+  .opt.correct { background: var(--green); border-color: var(--green); color: #fff; }
+  .opt.wrong { background: var(--red-dark); border-color: var(--red); color: #fff; }
+  .opt:disabled { opacity: 1; }
+
+  /* Prohlížení */
+  .section { margin-bottom: 20px; }
+  .section h2 {
+    font-size: 15px; text-transform: uppercase; letter-spacing: 1px; color: var(--red);
+    border-bottom: 1px solid var(--line); padding-bottom: 6px; margin: 0 0 8px;
+  }
+  .item { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid #1f1f1f; }
+  .item .l { flex: 1; min-width: 0; }
+  .item .n { font-weight: 600; }
+  .item .i { color: var(--muted); font-size: 14px; }
+  .item .p { font-weight: 700; white-space: nowrap; }
+  .item .st { font-size: 12px; color: var(--muted); }
+  .item .st .ok { color: var(--green); } .item .st .ko { color: var(--red); }
+  .quest { background: var(--panel); border-left: 4px solid var(--red); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+  .empty { text-align: center; color: var(--muted); padding: 40px 0; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🍸 Bar <span>kvíz</span></h1>
+  <div class="tabs">
+    <button class="tab" data-mode="cards">Kartičky</button>
+    <button class="tab" data-mode="price">Ceny</button>
+    <button class="tab" data-mode="ing">Suroviny</button>
+    <button class="tab" data-mode="browse">Menu</button>
+  </div>
+  <div class="filterRow">
+    <select id="filter"></select>
+    <button class="small-btn" id="reset">Reset<br>postupu</button>
+  </div>
+  <div class="filterRow" id="searchRow">
+    <input type="search" id="search" placeholder="Hledat drink, surovinu…" autocomplete="off">
+  </div>
+</header>
+
+<main id="main"></main>
+
+<script>
+// ===================== DATA =====================
+// [název, suroviny|null, cena (0 = zdarma), poznámka]
+const MENU = [
+  { id: 'pivo', name: 'Pivo', items: [
+    ['Čepovaná Plzeň 0,5l', null, 62],
+    ['Čepovaný šnyt 0,3l', null, 54],
+    ['Čepovaný Birell Pomelo & Grep 0,5l', null, 55],
+    ['Lahvový Proud 0,33l', null, 55],
+  ]},
+  { id: 'vodka', name: 'Míchané – Vodka', items: [
+    ['Skinny Bitch', 'Absolut vodka, limeta, soda', 105],
+    ['Fat Bitch', 'Absolut vodka, ovocné pyré, limeta, soda', 120, 'Mango&marakuja / Malina / Jahoda / Kyselé jablko'],
+    ['Espresso Martini', 'Absolut vodka, Kahlúa, espresso, cukr', 150],
+    ['Moscow Mule', 'Absolut vodka, zázvorové pivo, limeta', 135],
+    ['French Martini', 'Absolut vodka, ananasový džus, Chambord', 155],
+    ['Absolut Lemonade', 'Absolut vodka, limeta, Sprite', 135],
+    ['Pornstar Martini', 'vanilková Absolut vodka, marakujové pyré, limeta, Passoa, prosecco', 150],
+  ]},
+  { id: 'rum', name: 'Míchané – Rum', items: [
+    ["Dark 'n' Stormy", 'Kraken rum, zázvorové pivo, limeta', 135],
+    ['Mojito', 'Havana 3y, limeta, máta, třtinový cukr, soda', 155],
+    ['Cuba Libre', 'Havana rum, limeta, cola', 105],
+    ["Planter's Punch", 'Havana 7y, limeta, cukr, pomerančový džus, Angostura Bitters, grenadina', 155],
+    ['Salty Bird', 'Havana 3y, Campari, ananasový džus, sůl, limeta, cukr', 155],
+  ]},
+  { id: 'gin', name: 'Míchané – Gin', items: [
+    ['Bramble', 'Beefeater gin, ostružinový likér, limeta', 135],
+    ['Gin & Tonic', 'Beefeater gin, tonic', 105],
+    ['London Mule', 'Beefeater gin, malinové pyré, limeta, zázvorové pivo', 135],
+    ['Negroni', 'Beefeater gin, Campari, sladký vermut', 160],
+    ['French 75', 'Beefeater gin, prosecco, limeta, cukr', 155],
+    ['Tom Collins', 'Beefeater gin, cukr, soda, limeta', 125],
+    ['Gin Fizz', 'Beefeater gin, ovocné pyré, cukr, soda, limeta', 140],
+  ]},
+  { id: 'whisky-tequila', name: 'Míchané – Whisky a Tequila', items: [
+    ['Irish Mule', 'Jameson whiskey, limeta, zázvorové pivo', 135],
+    ['Old Fashioned', 'Bourbon, cukr, Angostura Bitters, pomeranč', 160],
+    ['Mint Julep', 'Bourbon, máta, cukr', 155],
+    ['Paloma', 'Altos tequila, limeta, grepová soda', 135],
+    ['Spicy Mangonada', 'Altos tequila, mangové pyré, Cointreau, limeta, Tajín, Tabasco', 155],
+  ]},
+  { id: 'spritz', name: 'Spritz', items: [
+    ['Sarti Spritz', 'Sarti, prosecco, soda', 125],
+    ['Aperol Spritz', 'Aperol, prosecco, soda', 120],
+    ['Hugo Spritz', 'prosecco, máta, limeta, bezinkový sirup', 125],
+    ['Campari Spritz', 'prosecco, Campari, soda', 120],
+    ['Viola Spritz', 'prosecco, fialka, soda', 125],
+    ['Italicus & Grep', 'Italicus, grepová soda, grep', 125],
+  ]},
+  { id: 'specialy', name: 'Ostatní speciály', items: [
+    ['Adios FBLS', 'vodka, rum, Cointreau, gin, tequila, limeta, Blue Curaçao, Sprite', 175],
+    ['Long Island', 'vodka, rum, Cointreau, gin, tequila, limeta, cola', 175],
+    ['Beergarita', 'Proud, Cointreau, limeta, sůl', 120],
+    ['Micheláďa', 'pivo, rajčatový džus, sůl, worcester, limeta', 120],
+    ['Necromancer', 'absint, bezinkový likér, Lillet Blanc, Beefeater gin, limeta', 160],
+  ]},
+  { id: 'mocktaily', name: 'Mocktaily', items: [
+    ['Passion at the Disco', 'limeta, marakuja, tonic', 105],
+    ['Classic Lemonade', 'citron, cukr, citrusové aromatické oleje', 85],
+    ['Shaken Ice Tea', 'silný čaj, cukr, limeta', 85],
+    ['Crodino Spritz', 'Crodino Biondo, soda, pomeranč', 100],
+    ['Nealko Gin & Tonic', 'nealko Beefeater, tonic, citron', 100],
+  ]},
+  { id: 'shooters', name: 'Shooters (0,04l)', items: [
+    ['Mango Chupito', 'Havana 3y, mangové pyré, limeta, kandované mango', 65],
+    ['Chupito', 'Havana 3y, limeta, koktejlová třešeň', 65],
+    ['Bubble Raspberry Shot', 'Absolut vodka, malinové pyré, limeta', 75],
+    ['Spicy Mangonada shot', 'tequila, mangové pyré, Tajín, limeta, Tabasco', 75],
+    ['B55', 'Baileys, Kahlúa, absint', 75],
+    ['Žížala Kyselá', 'ovocný likér, limeta, třtinový cukr', 70],
+  ]},
+  { id: 'p-whisky', name: 'Panáky – Whisky (0,04l)', items: [
+    ['Jameson', null, 80], ['Jameson Black Barrel', null, 90], ["Jack Daniel's", null, 85],
+    ["Jack Daniel's Fire", null, 85], ["Jack Daniel's Blackberry", null, 85], ['Gold Cock 10y', null, 120],
+    ['Arran 10y', null, 120], ['Four Roses', null, 100], ['Ardbeg 10y', null, 155], ['Nikka From The Barrel', null, 180],
+  ]},
+  { id: 'p-gin', name: 'Panáky – Giny (0,04l)', items: [
+    ['Beefeater', null, 80], ['Beefeater Pink', null, 80], ['Malfy Gin con Limone', null, 95],
+    ['Malfy Pink', null, 95], ["Hendrick's", null, 110], ['Roku', null, 115],
+    ['Citadelle Jardin', null, 120], ['Mermaid Pink', null, 130],
+  ]},
+  { id: 'p-vodka', name: 'Panáky – Vodky (0,04l)', items: [
+    ['Absolut', null, 80], ['Ochucená Absolut', null, 90, 'Mango / Citron / Mandarin'],
+    ['Beluga', null, 120], ['Belvedere', null, 120], ['Babička', null, 110],
+  ]},
+  { id: 'p-rum', name: 'Panáky – Rumy (0,04l)', items: [
+    ['Republica', null, 65], ['Ron de Azur 6y', null, 70], ['Havana 3y', null, 80],
+    ['Havana Club Especial 5y', null, 80], ['Kraken Black', null, 110], ['Planteray XO', null, 130],
+    ["Planteray Stiggins' Fancy Pineapple", null, 115], ['Planteray Cut & Dry', null, 115], ['Rhum Agricole 1492', null, 180],
+  ]},
+  { id: 'p-likery', name: 'Panáky – Likéry a další (0,04l)', items: [
+    ['Ramazzotti Amaro', null, 85], ['Modrá', null, 55], ['Mátový likér', null, 65],
+    ['Baron Slivovice', null, 100], ['Bumbu', null, 115], ['Blue Mauritius', null, 135],
+    ['Malibu', null, 65], ['Chilli extrém', null, 85], ['Pivovice', null, 85],
+  ]},
+  { id: 'nealko', name: 'Nealko', items: [
+    ['Limonáda Piu Piu 0,5l', null, 75, 'Malina / Bílá broskev / LoL / Liči citron'],
+    ['Neperlivá voda', null, 0],
+    ['Mattoni jemně perlivá 0,33l', null, 50],
+    ['Karafa s ovocem 1l', null, 50],
+    ['Něco jako Cola 0,33l', null, 65],
+    ['Něco jako Franta 0,33l', null, 65],
+    ['Něco jako Spratek 0,33l', null, 65],
+    ['Fever-Tree Indian Tonic 0,2l', null, 65],
+    ['Fever-Tree Mediterranean Tonic 0,2l', null, 65],
+    ['Fever-Tree Raspberry & Rhubarb Tonic 0,2l', null, 65],
+    ['Fever-Tree Pink Grapefruit Soda 0,2l', null, 65],
+    ['Fever-Tree Ginger Beer 0,2l', null, 65],
+    ['Red Bull 0,25l', null, 65],
+  ]},
+  { id: 'teple', name: 'Teplé nápoje', items: [
+    ['Černý čaj Earl Grey 0,5l', null, 75], ['Zelený čaj Touareg 0,5l', null, 75],
+    ['Mátový čaj 0,5l', null, 75], ['Heřmánkový čaj 0,5l', null, 75],
+    ['Borůvkový vrch 0,5l', null, 75], ['Zázvorový elixír čerstvý 0,2l', null, 80],
+  ]},
+  { id: 'kava', name: 'Káva (všechny i na ledu)', items: [
+    ['Espresso', null, 50], ['Doppio', null, 80], ['Lungo', null, 55], ['Espresso Macchiato', null, 65],
+    ['Cappuccino', null, 75], ['Caffè Latte', null, 80], ['Flat White', null, 90], ['Příchuť navíc', null, 15],
+  ]},
+  { id: 'vino', name: 'Víno', items: [
+    ['Veltlínské zelené (Mikulov) 0,2l', null, 85],
+    ['Rulandské modré (Znovín Znojmo) 0,2l', null, 85],
+    ['Foscaro Prosecco Frizzante 0,2l', null, 85],
+    ['Prosecco Spago 0,75l', null, 730],
+    ['Cava Daurat Brut Nature Reserva 0,75l', null, 750],
+  ]},
+  { id: 'tousty', name: 'Jídlo – Tousty', items: [
+    ['Toust Slanina a vejce', null, 89], ['Toust Kuře a slanina', null, 95], ['Toust Šunka a sýr', null, 89],
+    ['HMNX (zapékané)', null, 130], ['Triple cheese (zapékané)', null, 130],
+    ['Salámové panini (zapékané)', null, 155], ['Sýrové panini (zapékané)', null, 155],
+  ]},
+  { id: 'snacky', name: 'Snacky', items: [
+    ['Brambůrky', null, 65, 'slané / hořčicové'],
+  ]},
+];
+
+const SIDEQUESTS = [
+  ['Prokletí Černé perly', "2× Dark 'n' Stormy + 2× Long Island, jedna osoba do úsvitu"],
+  ['Hiroshima', '5× shooter B55'],
+];
+
+// Rozbalení do plochého seznamu
+const ITEMS = [];
+MENU.forEach(sec => sec.items.forEach(([n, ing, p, note]) => {
+  ITEMS.push({ key: sec.id + '|' + n, sec: sec.id, secName: sec.name, name: n, ing, price: p, note });
+}));
+
+// ===================== STAV =====================
+const LS_PROGRESS = 'barquiz_progress_v1';
+const LS_UI = 'barquiz_ui_v1';
+
+function load(key, def) {
+  try { const v = JSON.parse(localStorage.getItem(key)); return v ?? def; } catch (e) { return def; }
+}
+function save(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+}
+
+let progress = load(LS_PROGRESS, {});           // { key: { ok, ko } }
+const ui = Object.assign({ mode: 'cards', filter: 'all' }, load(LS_UI, {}));
+let lastKey = null;
+let session = { ok: 0, ko: 0 };
+
+function stat(item) { return progress[item.key] || { ok: 0, ko: 0 }; }
+function record(item, correct) {
+  const s = Object.assign({ ok: 0, ko: 0 }, progress[item.key]);
+  correct ? s.ok++ : s.ko++;
+  progress[item.key] = s;
+  save(LS_PROGRESS, progress);
+  correct ? session.ok++ : session.ko++;
+}
+
+// ===================== POMOCNÉ =====================
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtPrice = p => p === 0 ? 'ZDARMA' : p + ' Kč';
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+function filtered() {
+  return ui.filter === 'all' ? ITEMS
+    : ui.filter === 'mixed' ? ITEMS.filter(i => i.ing)
+    : ITEMS.filter(i => i.sec === ui.filter);
+}
+
+// Váha: neznámé a často špatně zodpovězené položky chodí častěji
+function weight(item) {
+  const s = stat(item);
+  if (s.ok + s.ko === 0) return 3;
+  return Math.max(0.25, 1 + s.ko * 2 - s.ok * 0.7);
+}
+function pickWeighted(pool) {
+  if (pool.length > 1) pool = pool.filter(i => i.key !== lastKey);
+  const total = pool.reduce((a, i) => a + weight(i), 0);
+  let r = Math.random() * total;
+  for (const i of pool) { r -= weight(i); if (r <= 0) { lastKey = i.key; return i; } }
+  lastKey = pool[pool.length - 1].key;
+  return pool[pool.length - 1];
+}
+
+function statsLine(pool) {
+  const known = pool.filter(i => { const s = stat(i); return s.ok > 0 && s.ok > s.ko; }).length;
+  return `<div class="stats">Umím <b>${known}</b> / ${pool.length} · Tohle kolo: <b style="color:var(--green)">${session.ok}</b> ✓ <b style="color:var(--red)">${session.ko}</b> ✗</div>`;
+}
+
+// ===================== REŽIMY =====================
+function render() {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.mode === ui.mode));
+  $('#searchRow').classList.toggle('hidden', ui.mode !== 'browse');
+  save(LS_UI, { mode: ui.mode, filter: ui.filter });
+  ({ cards: renderCards, price: renderPrice, ing: renderIng, browse: renderBrowse })[ui.mode]();
+  window.scrollTo(0, 0);
+}
+
+// ---- 1. Kartičky ----
+function renderCards() {
+  const pool = filtered();
+  if (!pool.length) return empty();
+  const it = pickWeighted(pool);
+  $('#main').innerHTML = statsLine(pool) + `
+    <div class="card" id="card">
+      <div class="card-inner">
+        <div class="face front">
+          <div class="sec">${esc(it.secName)}</div>
+          <div class="name">${esc(it.name)}</div>
+          ${it.note ? `<div class="note">${esc(it.note)}</div>` : ''}
+          <div class="hint">Klepni pro otočení</div>
+        </div>
+        <div class="face back">
+          <div class="sec">${esc(it.name)}</div>
+          ${it.ing ? `<div class="ing">${esc(it.ing)}</div>` : ''}
+          <div class="price">${fmtPrice(it.price)}</div>
+        </div>
+      </div>
+    </div>
+    <div id="answer" class="two hidden">
+      <button class="btn red" id="no">Nevěděl jsem</button>
+      <button class="btn green" id="yes">Věděl jsem</button>
+    </div>
+    <button class="btn outline" id="flip">Otočit</button>`;
+  const flip = () => {
+    $('#card').classList.toggle('flipped');
+    $('#answer').classList.remove('hidden');
+    $('#flip').classList.add('hidden');
+  };
+  $('#card').onclick = flip;
+  $('#flip').onclick = flip;
+  $('#yes').onclick = () => { record(it, true); renderCards(); };
+  $('#no').onclick = () => { record(it, false); renderCards(); };
+}
+
+// ---- společné pro kvízy ----
+function renderQuiz(it, questionHtml, options, correctLabel) {
+  const pool = filtered();
+  $('#main').innerHTML = statsLine(ui.mode === 'ing' ? pool.filter(i => i.ing) : pool.filter(i => i.price > 0)) +
+    `<div class="question">${questionHtml}</div>` +
+    options.map(o => `<button class="opt" data-v="${esc(o)}">${esc(o)}</button>`).join('') +
+    `<button class="btn red hidden" id="next">Další →</button>`;
+  const next = () => render();
+  document.querySelectorAll('.opt').forEach(b => b.onclick = () => {
+    const ok = b.dataset.v === correctLabel;
+    document.querySelectorAll('.opt').forEach(x => {
+      x.disabled = true;
+      if (x.dataset.v === correctLabel) x.classList.add('correct');
+    });
+    if (!ok) b.classList.add('wrong');
+    record(it, ok);
+    if (ok) setTimeout(next, 700);
+    else { $('#next').classList.remove('hidden'); $('#next').onclick = next; }
+  });
+}
+
+// ---- 2. Kvíz ceny ----
+function renderPrice() {
+  const pool = filtered().filter(i => i.price > 0);
+  if (!pool.length) return empty('V této sekci nejsou položky s cenou.');
+  const it = pickWeighted(pool);
+  // distraktory: nejdřív reálné ceny ze stejné sekce, pak blízké ceny
+  const set = new Set([it.price]);
+  shuffle(ITEMS.filter(i => i.sec === it.sec && i.price > 0).map(i => i.price))
+    .forEach(p => { if (set.size < 4) set.add(p); });
+  const steps = shuffle([-30, -20, -15, -10, -5, 5, 10, 15, 20, 30]);
+  for (const d of steps) { if (set.size >= 4) break; const p = it.price + d; if (p > 0) set.add(p); }
+  const opts = shuffle([...set]).map(fmtPrice);
+  renderQuiz(it,
+    `<div class="sec">${esc(it.secName)}</div><div class="q">${esc(it.name)}</div>` +
+    (it.note ? `<div class="sub">${esc(it.note)}</div>` : '') + `<div class="sub">Kolik to stojí?</div>`,
+    opts, fmtPrice(it.price));
+}
+
+// ---- 3. Kvíz suroviny ----
+function renderIng() {
+  const pool = filtered().filter(i => i.ing);
+  if (!pool.length) return empty('V této sekci nejsou drinky se surovinami. Vyber jinou sekci.');
+  const it = pickWeighted(pool);
+  const all = ITEMS.filter(i => i.ing && i.name !== it.name && i.ing !== it.ing);
+  const same = shuffle(all.filter(i => i.sec === it.sec));
+  const other = shuffle(all.filter(i => i.sec !== it.sec));
+  const names = new Set([it.name]);
+  [...same, ...other].forEach(i => { if (names.size < 4) names.add(i.name); });
+  renderQuiz(it,
+    `<div class="sec">Který drink to je?</div><div class="q ing">${esc(it.ing)}</div>`,
+    shuffle([...names]), it.name);
+}
+
+// ---- 4. Prohlížení ----
+function renderBrowse() {
+  const q = norm($('#search').value.trim());
+  const match = i => !q || norm(i.name + ' ' + (i.ing || '') + ' ' + (i.note || '') + ' ' + i.price).includes(q);
+  let html = '';
+  MENU.forEach(sec => {
+    if (ui.filter === 'mixed' && !sec.items.some(i => i[1])) return;
+    if (ui.filter !== 'all' && ui.filter !== 'mixed' && ui.filter !== sec.id) return;
+    const items = ITEMS.filter(i => i.sec === sec.id && match(i));
+    if (!items.length) return;
+    html += `<div class="section"><h2>${esc(sec.name)}</h2>` + items.map(i => {
+      const s = stat(i);
+      return `<div class="item"><div class="l">
+        <div class="n">${esc(i.name)}</div>
+        ${i.note ? `<div class="i">${esc(i.note)}</div>` : ''}
+        ${i.ing ? `<div class="i">${esc(i.ing)}</div>` : ''}
+        ${s.ok + s.ko ? `<div class="st"><span class="ok">✓ ${s.ok}</span> · <span class="ko">✗ ${s.ko}</span></div>` : ''}
+      </div><div class="p">${fmtPrice(i.price)}</div></div>`;
+    }).join('') + `</div>`;
+  });
+  if (ui.filter === 'all') {
+    const qs = SIDEQUESTS.filter(([n, d]) => !q || norm(n + ' ' + d).includes(q));
+    if (qs.length) html += `<div class="section"><h2>⚔️ Sidequesty</h2>` +
+      qs.map(([n, d]) => `<div class="quest"><div class="n"><b>${esc(n)}</b></div><div class="i" style="color:var(--muted)">${esc(d)}</div></div>`).join('') + `</div>`;
+  }
+  $('#main').innerHTML = html || `<div class="empty">Nic nenalezeno.</div>`;
+}
+
+function empty(msg) {
+  $('#main').innerHTML = `<div class="empty">${esc(msg || 'Žádné položky.')}</div>`;
+}
+
+// ===================== INIT =====================
+const sel = $('#filter');
+sel.innerHTML = `<option value="all">Celé menu</option><option value="mixed">Jen míchané drinky (vše se surovinami)</option>` +
+  MENU.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+if (![...sel.options].some(o => o.value === ui.filter)) ui.filter = 'all';
+sel.value = ui.filter;
+sel.onchange = () => { ui.filter = sel.value; session = { ok: 0, ko: 0 }; render(); };
+
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => { ui.mode = t.dataset.mode; session = { ok: 0, ko: 0 }; render(); });
+$('#search').oninput = () => renderBrowse();
+$('#reset').onclick = () => {
+  if (!confirm('Opravdu smazat celý postup?')) return;
+  progress = {}; session = { ok: 0, ko: 0 };
+  save(LS_PROGRESS, progress);
+  render();
+};
+
+render();
+</script>
+</body>
+</html>
